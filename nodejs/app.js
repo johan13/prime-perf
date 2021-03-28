@@ -16,21 +16,21 @@ function main() {
 }
 
 function countPrimes(upperLimit) {
-    const bits = new Uint32Array(Math.ceil(upperLimit / 32)).fill(~0);
-    const getBit = b => (bits[(b / 32) | 0] & (1 << b % 32)) !== 0;
-    const clearBit = b => (bits[(b / 32) | 0] &= ~(1 << b % 32));
+    // bit n of bits represents the number 2*n+1. If the bit is set then the number is a candidate.
+    // This implementation eliminates 2 but it doesn't eliminate 1, so those errors cancel out.
+    const bits = new Uint32Array(Math.ceil(upperLimit / 64)).fill(~0);
+    const isPrime = n => bits[n >> 6] & 1 << (n >> 1 & 0x1f);
+    const markNotPrime = n => bits[n >> 6] &= ~(1 << (n >> 1 & 0x1f));
 
-    // 0 and 1 are not primes. Also reset the bits >=upperLimit.
-    bits[0] = ~3;
-    for (let i = upperLimit; i < bits.length * 32; i++)
-        clearBit(i);
+    // If upperLimit is not a multiple of 64 then don't count the extra numbers at the end.
+    for (let i = upperLimit >> 0 | 1; i < bits.length * 64; i += 2)
+        markNotPrime(i);
 
-    const stop = Math.ceil(Math.sqrt(upperLimit)) | 0;
-    for (let i = 2; i < stop; i++) {
-        if (getBit(i)) {
-            for (let j = i + i; j < upperLimit; j += i) {
-                clearBit(j);
-            }
+    const sqrtUpperLimit = Math.ceil(Math.sqrt(upperLimit)) >> 0;
+    for (let i = 3; i < sqrtUpperLimit; i += 2) {
+        if (isPrime(i)) {
+            for (let j = i + i + i; j < upperLimit; j += i + i)
+                markNotPrime(j);
         }
     }
     return countOnes(bits);
@@ -40,9 +40,9 @@ function countPrimes(upperLimit) {
 function countOnes(bits) {
     let count = 0;
     for (let n of bits) {
-        n = n - ((n >> 1) & 0x55555555);
-        n = (n & 0x33333333) + ((n >> 2) & 0x33333333);
-        count += (((n + (n >> 4)) & 0xf0f0f0f) * 0x1010101) >> 24;
+        n = n - (n >> 1 & 0x55555555);
+        n = (n & 0x33333333) + (n >> 2 & 0x33333333);
+        count += (n + (n >> 4) & 0xf0f0f0f) * 0x1010101 >> 24;
     }
     return count;
 }
